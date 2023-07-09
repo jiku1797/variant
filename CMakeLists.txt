@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.25)
 project(variant)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 11)
 
-add_executable(variant main.cpp Variant.h)
+set(SOURCES main.cpp)
+set(HEADERS Variant.h)
+
+add_executable(variant ${SOURCES} ${HEADERS})
+
+add_subdirectory(test)
