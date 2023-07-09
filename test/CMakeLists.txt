@@ -6,8 +6,9 @@ add_subdirectory(lib)
 set(gtest_SOURCE_DIR "${PROJECT_SOURCE_DIR}/lib/googletest")
 
 set(SOURCES variant_tests.cpp)
+set(HEADERS VariantTest.h)
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
 message("CMake source directory = ${CMAKE_SOURCE_DIR}")
 
