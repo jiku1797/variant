@@ -51,3 +51,72 @@ TEST_F(VariantTest, moveCtor)
 	ASSERT_TRUE(holds_alternative<double>(dest));
 	ASSERT_EQ(dest.index(), 1);
 }
+
+TEST_F(VariantTest, copyAssign)
+{
+	using variant_t = BasicPtVariant<int, double>;
+
+	variant_t assignTo = 3.14;
+	variant_t assignFrom = 42;
+
+	// assign
+	assignTo = assignFrom;
+
+	ASSERT_TRUE(holds_alternative<int>(assignTo));
+	ASSERT_EQ(assignTo.get<int>(), 42);
+}
+
+TEST_F(VariantTest, moveAssign)
+{
+	using variant_t = BasicPtVariant<int, double>;
+
+	variant_t assignTo = 3.14;
+	variant_t assignFrom = 42;
+
+	// assign
+	assignTo = std::move(assignFrom);
+
+	ASSERT_TRUE(holds_alternative<int>(assignTo));
+	ASSERT_EQ(assignTo.get<int>(), 42);
+}
+
+TEST_F(VariantTest, moveAssignByValue)
+{
+	using variant_t = BasicPtVariant<int, double>;
+
+	variant_t assignTo = 3.14;
+
+	const int val = 42;
+
+	// assign
+	assignTo = std::move(val);
+
+	ASSERT_TRUE(holds_alternative<int>(assignTo));
+	ASSERT_EQ(assignTo.get<int>(), 42);
+}
+
+TEST_F(VariantTest, getFromConstVariant)
+{
+	using variant_t = BasicPtVariant<int, double>;
+
+	const variant_t v = 3.14;
+
+	ASSERT_EQ(v.get<double>(), 3.14);
+}
+
+TEST_F(VariantTest, getWrongType)
+{
+	using variant_t = BasicPtVariant<int, double>;
+
+	const variant_t v = 3.14;
+
+	try
+	{
+		const auto val = v.get<int>();
+		FAIL() << "Did not expect variant to hold an int";
+	}
+	catch(const detail::bad_variant_access& bva)
+	{
+		ASSERT_EQ(v.get<double>(), 3.14);
+	}
+}

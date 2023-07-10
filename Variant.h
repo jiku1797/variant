@@ -58,6 +58,16 @@ struct StaticMax<First, Rest...>
 	static constexpr size_t value = First > StaticMax<Rest...>::value ? First : StaticMax<Rest...>::value;
 };
 
+class bad_variant_access : public std::runtime_error
+{
+public:
+	explicit bad_variant_access(const std::string& what_arg)
+		: runtime_error(what_arg) {}
+
+	explicit bad_variant_access(const char* what_arg)
+		: runtime_error(what_arg) {}
+};
+
 template <typename... Types>
 struct VariantHelper;
 
@@ -130,10 +140,10 @@ struct IndexTrait<T>
 template <typename T, typename... Types>
 struct ValueTraits
 {
-	//using value_t = typename std::remove_const<typename std::remove_reference<T>::type>::type;
+	using value_t = typename std::remove_const<typename std::remove_reference<T>::type>::type;
 
 	// decrease from sizeof...(Types)-1, invalidValue if T not among Types
-	static constexpr index_t reverseIndex = IndexTrait<T, Types...>::value;
+	static constexpr index_t reverseIndex = IndexTrait<value_t , Types...>::value;
 	static constexpr bool isValid = reverseIndex != invalidValue;
 	static constexpr index_t forwardIndex = isValid ? sizeof...(Types) - reverseIndex - 1 : 0; // increase from 0
 	using target_t = typename std::tuple_element<forwardIndex, std::tuple<Types...>>::type;
@@ -155,6 +165,7 @@ class BasicPtVariant
 public:
 	using types = std::tuple<Types...>;
 
+	// ctors
 	inline BasicPtVariant() noexcept(std::is_nothrow_default_constructible<firstType>::value)
 		: m_index(sizeof...(Types) - 1)
 	{
@@ -164,7 +175,7 @@ public:
 	}
 
 	template <typename T, typename Traits = detail::ValueTraits<T, Types...>,
-		typename std::enable_if<Traits::isValid && !std::is_same<BasicPtVariant<Types...>, typename Traits::target_t>::value, int>::type = 0>
+		typename std::enable_if<Traits::isValid && !std::is_same<BasicPtVariant<Types...>, typename Traits::value_t>::value, int>::type = 0>
 	inline BasicPtVariant(T&& val) noexcept(std::is_nothrow_constructible<typename Traits::target_t, T&&>::value)
 		: m_index(Traits::reverseIndex)
 	{
@@ -184,8 +195,82 @@ public:
 		helper_t::move(old.m_index, old.m_data.data(), m_data.data());
 	}
 
+	// assignment
+	inline BasicPtVariant<Types...>& operator=(BasicPtVariant<Types...>&& other)
+		noexcept(detail::conjunction<std::is_nothrow_move_constructible<Types>...>::value)
+	{
+		printf("%s\n", "move assign from variant");
+		if (this == &other)
+		{
+			return *this;
+		}
 
-	constexpr index_t index() const noexcept {return sizeof...(Types) - m_index - 1;} // actual index
+		move_assign(std::move(other));
+		return *this;
+	}
+
+	inline BasicPtVariant<Types...>& operator=(const BasicPtVariant<Types...>& other)
+	{
+		printf("%s\n", "copy assign from variant");
+		if (this != &other)
+			copy_assign(other);
+		return *this;
+	}
+
+	// conversions
+	// move-assign
+	template<typename T, typename Traits = detail::ValueTraits<T, Types...>,
+		typename std::enable_if<Traits::isValid && !std::is_same<BasicPtVariant<Types...>, typename Traits::value_t>::value, int>::type = 0>
+	inline BasicPtVariant<Types...>& operator=(T&& rhs)
+	noexcept(std::is_nothrow_constructible<typename Traits::target_t, T&&>::value
+		&& std::is_nothrow_move_assignable<BasicPtVariant<Types...>>::value)
+	{
+		printf("%s\n", "conversion/move assign from value");
+		BasicPtVariant<Types...> temp(std::forward<T>(rhs));
+		move_assign(std::move(temp));
+		return *this;
+	}
+
+	// copy-assign
+	template<typename T>
+	inline BasicPtVariant<Types...>& operator=(const T& rhs)
+	{
+		printf("%s\n", "copy assign from value");
+		BasicPtVariant<Types...> temp(rhs);
+		move_assign(std::move(temp));
+		return *this;
+	}
+
+	// accessors
+	template <typename T, typename Traits = detail::ValueTraits<T, Types...>,
+	   typename std::enable_if<Traits::isValid, int>::type = 0>
+	inline T& get()
+	{
+		if (m_index == Traits::reverseIndex)
+		{
+			return *reinterpret_cast<T*>(m_data.data());
+		}
+		else
+		{
+			throw detail::bad_variant_access("in get<T>()");
+		}
+	}
+
+	template <typename T, typename Traits = detail::ValueTraits<T, Types...>,
+		typename std::enable_if<Traits::isValid, int>::type = 0>
+	inline const T& get() const
+	{
+		if (m_index == Traits::reverseIndex)
+		{
+			return *reinterpret_cast<const T*>(m_data.data());
+		}
+		else
+		{
+			throw detail::bad_variant_access("in get<T>() const");
+		}
+	}
+
+	constexpr index_t index() const noexcept {return sizeof...(Types) - m_index - 1;} // "actual" index
 
 private:
 	using firstType = typename std::tuple_element<0, types>::type;
@@ -195,6 +280,22 @@ private:
 	{
 		k_size = detail::StaticMax<sizeof(Types)...>::value
 	};
+
+	inline void copy_assign(BasicPtVariant<Types...> const& rhs)
+	{
+		helper_t::destroy(m_index, m_data.data());
+		m_index = detail::invalidValue;
+		helper_t::copy(rhs.m_index, rhs.m_data.data(), m_data.data());
+		m_index = rhs.m_index;
+	}
+
+	inline void move_assign(BasicPtVariant<Types...>&& rhs)
+	{
+		helper_t::destroy(m_index, m_data.data());
+		m_index = detail::invalidValue;
+		helper_t::move(rhs.m_index, rhs.m_data.data(), m_data.data());
+		m_index = rhs.m_index;
+	}
 
 	index_t m_index{ detail::invalidValue };
 
