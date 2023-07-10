@@ -3,6 +3,7 @@
 
 #include <type_traits>
 #include <cstdint>
+#include <cstdio>
 #include <limits>
 #include <tuple>
 #include <array>
@@ -14,12 +15,28 @@ namespace detail
 using index_t = std::uint_fast8_t;
 static constexpr index_t invalidValue = index_t(-1);
 
+template <typename...>
+struct conjunction : std::true_type {};
+
+template <typename B1>
+struct conjunction<B1> : B1 {};
+
+template <typename B1, typename B2>
+struct conjunction<B1, B2> : std::conditional<B1::value, B2, B1>::type {};
+
+template <typename B1, typename... Bs>
+struct conjunction<B1, Bs...> : std::conditional<B1::value, conjunction<Bs...>, B1>::type {};
+
 template<typename...> struct disjunction : std::false_type
 {
 };
 template<typename B1> struct disjunction<B1> : B1
 {
 };
+
+template <typename B1, typename B2>
+struct disjunction<B1, B2> : std::conditional<B1::value, B1, B2>::type {};
+
 template<typename B1, typename... Bn>
 struct disjunction<B1, Bn...>
 	: std::conditional<bool(B1::value), B1, disjunction<Bn...>>::type
@@ -84,6 +101,14 @@ struct VariantHelper<T, Types...>
 	}
 };
 
+template <>
+struct VariantHelper<>
+{
+	inline static void destroy(const index_t , void*) {}
+	inline static void move(const index_t , void*, void*) {}
+	inline static void copy(const index_t , const void*, void*) {}
+};
+
 // Only a helper, do not use directly
 template <typename T, typename ...Types>
 struct IndexTrait;
@@ -113,7 +138,7 @@ struct ValueTraits
 	static constexpr index_t forwardIndex = isValid ? sizeof...(Types) - reverseIndex - 1 : 0; // increase from 0
 	using target_t = typename std::tuple_element<forwardIndex, std::tuple<Types...>>::type;
 };
-} // details
+} // detail
 
 template<typename... Types>
 class BasicPtVariant
@@ -139,17 +164,32 @@ public:
 	}
 
 	template <typename T, typename Traits = detail::ValueTraits<T, Types...>,
-		typename Enable = typename std::enable_if<Traits::isValid && !std::is_same<BasicPtVariant<Types...>, typename Traits::target_t>::value>::type >
-	inline explicit BasicPtVariant(T&& val) noexcept(std::is_nothrow_constructible<typename Traits::target_t, T&&>::value)
+		typename std::enable_if<Traits::isValid && !std::is_same<BasicPtVariant<Types...>, typename Traits::target_t>::value, int>::type = 0>
+	inline BasicPtVariant(T&& val) noexcept(std::is_nothrow_constructible<typename Traits::target_t, T&&>::value)
 		: m_index(Traits::reverseIndex)
 	{
 		new (m_data.data()) typename Traits::target_t(std::forward<T>(val));
 	}
 
+	inline BasicPtVariant(const BasicPtVariant<Types...>& old)
+		: m_index(old.m_index)
+	{
+		helper_t::copy(old.m_index, old.m_data.data(), m_data.data());
+	}
+
+	inline BasicPtVariant(BasicPtVariant<Types...>&& old)
+		noexcept(detail::conjunction<std::is_nothrow_move_constructible<Types>...>::value)
+		: m_index(old.m_index)
+	{
+		helper_t::move(old.m_index, old.m_data.data(), m_data.data());
+	}
+
+
 	constexpr index_t index() const noexcept {return sizeof...(Types) - m_index - 1;} // actual index
 
 private:
 	using firstType = typename std::tuple_element<0, types>::type;
+	using helper_t =  detail::VariantHelper<Types...>;
 
 	enum size : std::size_t
 	{

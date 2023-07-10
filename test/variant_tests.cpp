@@ -32,5 +32,22 @@ TEST_F(VariantTest, valueCtorWithSingleType)
 	ASSERT_EQ(v.index(), 0);
 }
 
+TEST_F(VariantTest, copyCtor)
+{
+	using variant_t = BasicPtVariant<int, double>;
 
+	// prepare a source variant
+	variant_t src = 3.14;
 
+	// construct another one from it
+	variant_t dest = src;
+	ASSERT_TRUE(holds_alternative<double>(dest));
+	ASSERT_EQ(dest.index(), 1);
+}
+
+TEST_F(VariantTest, moveCtor)
+{
+	BasicPtVariant<int, double> dest = std::move(BasicPtVariant<int, double>(3.14));
+	ASSERT_TRUE(holds_alternative<double>(dest));
+	ASSERT_EQ(dest.index(), 1);
+}
