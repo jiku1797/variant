@@ -3,7 +3,7 @@
 #include "Variant.h"
 #include "VariantTest.h"
 
-using namespace basic_pt_variant;
+using namespace basic_variant;
 
 int main(int argc, char* argv[])
 {
@@ -19,7 +19,7 @@ TEST_F(VariantTest, defaultCtor)
 
 TEST_F(VariantTest, valueCtorWithValidValue)
 {
-	BasicPtVariant<int, double> v = 3.14;
+	BasicVariant<int, double> v = 3.14;
 	ASSERT_TRUE(holds_alternative<double>(v));
 	ASSERT_FALSE(holds_alternative<int>(v));
 	ASSERT_EQ(v.index(), 1);
@@ -27,34 +27,34 @@ TEST_F(VariantTest, valueCtorWithValidValue)
 
 TEST_F(VariantTest, valueCtorWithSingleType)
 {
-	BasicPtVariant<OnlyConstructibleFromInt> v = OnlyConstructibleFromInt(42);
+	BasicVariant<OnlyConstructibleFromInt> v = OnlyConstructibleFromInt(42);
 	ASSERT_TRUE(holds_alternative<OnlyConstructibleFromInt>(v));
 	ASSERT_EQ(v.index(), 0);
 }
 
 TEST_F(VariantTest, copyCtor)
 {
-	using variant_t = BasicPtVariant<int, double>;
+	using variant_t = BasicVariant<int, double>;
 
 	// prepare a source variant
 	variant_t src = 3.14;
 
 	// construct another one from it
-	variant_t dest = src;
+	const variant_t dest = src;
 	ASSERT_TRUE(holds_alternative<double>(dest));
 	ASSERT_EQ(dest.index(), 1);
 }
 
 TEST_F(VariantTest, moveCtor)
 {
-	BasicPtVariant<int, double> dest = std::move(BasicPtVariant<int, double>(3.14));
+	BasicVariant<int, double> dest = std::move(BasicVariant<int, double>(3.14));
 	ASSERT_TRUE(holds_alternative<double>(dest));
 	ASSERT_EQ(dest.index(), 1);
 }
 
 TEST_F(VariantTest, copyAssign)
 {
-	using variant_t = BasicPtVariant<int, double>;
+	using variant_t = BasicVariant<int, double>;
 
 	variant_t assignTo = 3.14;
 	variant_t assignFrom = 42;
@@ -68,7 +68,7 @@ TEST_F(VariantTest, copyAssign)
 
 TEST_F(VariantTest, moveAssign)
 {
-	using variant_t = BasicPtVariant<int, double>;
+	using variant_t = BasicVariant<int, double>;
 
 	variant_t assignTo = 3.14;
 	variant_t assignFrom = 42;
@@ -82,22 +82,22 @@ TEST_F(VariantTest, moveAssign)
 
 TEST_F(VariantTest, moveAssignByValue)
 {
-	using variant_t = BasicPtVariant<int, double>;
+	using variant_t = BasicVariant<int, double, std::string>;
 
-	variant_t assignTo = 3.14;
+	variant_t assignTo = 42;
 
-	const int val = 42;
+	std::string testStr = "testing testing";
 
 	// assign
-	assignTo = std::move(val);
+	assignTo = std::move(testStr);
 
-	ASSERT_TRUE(holds_alternative<int>(assignTo));
-	ASSERT_EQ(assignTo.get<int>(), 42);
+	ASSERT_TRUE(holds_alternative<std::string>(assignTo));
+	ASSERT_EQ(assignTo.get<std::string>(), std::string("testing testing"));
 }
 
 TEST_F(VariantTest, getFromConstVariant)
 {
-	using variant_t = BasicPtVariant<int, double>;
+	using variant_t = BasicVariant<int, double>;
 
 	const variant_t v = 3.14;
 
@@ -106,7 +106,7 @@ TEST_F(VariantTest, getFromConstVariant)
 
 TEST_F(VariantTest, getWrongType)
 {
-	using variant_t = BasicPtVariant<int, double>;
+	using variant_t = BasicVariant<int, double>;
 
 	const variant_t v = 3.14;
 

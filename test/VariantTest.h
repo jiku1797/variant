@@ -27,8 +27,8 @@ protected:
 
 	}
 
-	basic_pt_variant::BasicPtVariant<int, double> int_or_double_;
-	basic_pt_variant::BasicPtVariant<DefaultConstructible, OnlyConstructibleFromInt> v1_;
+	basic_variant::BasicVariant<int, double> int_or_double_;
+	basic_variant::BasicVariant<DefaultConstructible, OnlyConstructibleFromInt> v1_;
 };
 
 #endif //VARIANT_TEST_VARIANTTEST_H

@@ -5,7 +5,7 @@
 #include <iostream>
 
 template<typename ...Ts>
-void printSizes(const basic_pt_variant::BasicPtVariant<Ts...>& var)
+void printSizes(const basic_variant::BasicVariant<Ts...>& var)
 {
 	  auto idx = 0;
 	  (..., (std::cout << "Size at " << idx++ << " = " << sizeof(Ts) << "\n"));
@@ -21,7 +21,7 @@ struct Foo
 
 int main()
 {
-	basic_pt_variant::BasicPtVariant<int, double, char, float, Foo> var;
+	basic_variant::BasicVariant<int, double, char, float, Foo> var;
 	printSizes(var);
 
 	return 0;

@@ -247,40 +247,38 @@ namespace basic_variant
          helper_t::destroy(m_index, &m_data);
       }
 
-      // accessors
-      template <typename T, typename Traits = detail::ValueTraits<T, Types...>,
-         typename std::enable_if<Traits::isValid, int>::type = 0>
-      T& get()
-      {
-         if (m_index == Traits::reverseIndex)
-         {
-            return *reinterpret_cast<T*>(&m_data);
-         }
+		// accessors
+		template <typename T, typename Traits = detail::ValueTraits<T, Types...>,
+			typename std::enable_if<Traits::isValid, int>::type = 0>
+		T& get()
+		{
+			if (m_index == Traits::reverseIndex)
+			{
+				return *reinterpret_cast<T*>(&m_data);
+			}
 
-         throw detail::bad_variant_access("in get<T>()");
-      }
+			throw detail::bad_variant_access("in get<T>()");
+		}
 
-      template <typename T, typename Traits = detail::ValueTraits<T, Types...>,
-         typename std::enable_if<Traits::isValid, int>::type = 0>
-      const T& get() const
-      {
-         if (m_index == Traits::reverseIndex)
-         {
-            return *reinterpret_cast<const T*>(&m_data);
-         }
+		template <typename T, typename Traits = detail::ValueTraits<T, Types...>,
+			typename std::enable_if<Traits::isValid, int>::type = 0>
+		const T& get() const
+		{
+			if (m_index == Traits::reverseIndex)
+			{
+				return *reinterpret_cast<const T*>(&m_data);
+			}
 
-         throw detail::bad_variant_access("in get<T>() const");
-      }
+			throw detail::bad_variant_access("in get<T>() const");
+		}
 
       constexpr index_t index() const noexcept { return sizeof...(Types) - m_index - 1; } // "actual" index
 
    private:
       using helper_t = detail::VariantHelper<Types...>;
 
-      enum size : std::size_t
-      {
-         k_size = detail::StaticMax<sizeof(Types)...>::value
-      };
+      static constexpr std::size_t k_size = detail::StaticMax<sizeof(Types)...>::value;
+		static constexpr std::size_t k_alignment = detail::StaticMax<alignof(Types)...>::value;
 
       void copy_assign(const BasicVariant& rhs)
       {
@@ -300,8 +298,8 @@ namespace basic_variant
 
       index_t m_index{ detail::invalidIndex_v };
 
-      alignas(Types...) unsigned char m_data[size::k_size];
-
+      //alignas(Types...) unsigned char m_data[k_size];
+		typename std::aligned_storage<k_size, k_alignment>::type m_data;
    }; // class BasicVariant
 
    template<typename T, typename ...Types>
