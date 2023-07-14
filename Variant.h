@@ -6,7 +6,6 @@
 #include <cstdio>
 #include <limits>
 #include <tuple>
-#include <array>
 #include <stdexcept>
 
 namespace basic_variant
@@ -138,6 +137,9 @@ namespace basic_variant
          static constexpr index_t value = invalidIndex_v;
       };
 
+      template<typename ...Types>
+      using first_t = typename std::tuple_element<0, std::tuple<Types...>>::type;
+
       template <typename T, typename... Types>
       struct ValueTraits
       {
@@ -163,15 +165,13 @@ namespace basic_variant
       static_assert(sizeof...(Types) < (std::numeric_limits<index_t>::max)(), "Internal index type must be able to accommodate all alternatives.");
 
    public:
-      using types = std::tuple<Types...>;
-
       // ctors
-      BasicVariant() noexcept(std::is_nothrow_default_constructible<firstType>::value)
+      BasicVariant() noexcept(std::is_nothrow_default_constructible<detail::first_t<Types...>>::value)
          : m_index(sizeof...(Types) - 1)
       {
-         static_assert(std::is_default_constructible<firstType>::value,
+         static_assert(std::is_default_constructible<detail::first_t<Types...>>::value,
             "First type in variant must be default constructible to allow default construction of the sum type.");
-         new (m_data.data()) firstType();
+         new (&m_data) detail::first_t<Types...>();
       }
 
       template <typename T, typename Traits = detail::ValueTraits<T, Types...>,
@@ -179,20 +179,20 @@ namespace basic_variant
       BasicVariant(T&& val) noexcept(std::is_nothrow_constructible<typename Traits::target_t, T&&>::value)
          : m_index(Traits::reverseIndex)
       {
-         new (m_data.data()) typename Traits::target_t(std::forward<T>(val));
+         new (&m_data) typename Traits::target_t(std::forward<T>(val));
       }
 
       BasicVariant(const BasicVariant<Types...>& old)
          : m_index(old.m_index)
       {
-         helper_t::copy(old.m_index, old.m_data.data(), m_data.data());
+         helper_t::copy(old.m_index, &old.m_data, &m_data);
       }
 
-      inline BasicVariant(BasicVariant<Types...>&& old)
+      BasicVariant(BasicVariant<Types...>&& old)
          noexcept(detail::conjunction<std::is_nothrow_move_constructible<Types>...>::value)
          : m_index(old.m_index)
       {
-         helper_t::move(old.m_index, old.m_data.data(), m_data.data());
+         helper_t::move(old.m_index, &old.m_data, &m_data);
       }
 
       // assignment
@@ -244,7 +244,7 @@ namespace basic_variant
       // destruction
       ~BasicVariant() noexcept
       {
-         helper_t::destroy(m_index, &m_data.data());
+         helper_t::destroy(m_index, &m_data);
       }
 
       // accessors
@@ -254,7 +254,7 @@ namespace basic_variant
       {
          if (m_index == Traits::reverseIndex)
          {
-            return *reinterpret_cast<T*>(m_data.data());
+            return *reinterpret_cast<T*>(&m_data);
          }
 
          throw detail::bad_variant_access("in get<T>()");
@@ -266,7 +266,7 @@ namespace basic_variant
       {
          if (m_index == Traits::reverseIndex)
          {
-            return *reinterpret_cast<const T*>(m_data.data());
+            return *reinterpret_cast<const T*>(&m_data);
          }
 
          throw detail::bad_variant_access("in get<T>() const");
@@ -275,7 +275,6 @@ namespace basic_variant
       constexpr index_t index() const noexcept { return sizeof...(Types) - m_index - 1; } // "actual" index
 
    private:
-      using firstType = typename std::tuple_element<0, types>::type;
       using helper_t = detail::VariantHelper<Types...>;
 
       enum size : std::size_t
@@ -283,30 +282,30 @@ namespace basic_variant
          k_size = detail::StaticMax<sizeof(Types)...>::value
       };
 
-      void copy_assign(BasicVariant<Types...> const& rhs)
+      void copy_assign(const BasicVariant& rhs)
       {
-         helper_t::destroy(m_index, m_data.data());
+         helper_t::destroy(m_index, &m_data);
          m_index = detail::invalidIndex_v;
-         helper_t::copy(rhs.m_index, rhs.m_data.data(), m_data.data());
+         helper_t::copy(rhs.m_index, &rhs.m_data, &m_data);
          m_index = rhs.m_index;
       }
 
-      void move_assign(BasicVariant<Types...>&& rhs)
+      void move_assign(BasicVariant&& rhs)
       {
-         helper_t::destroy(m_index, m_data.data());
+         helper_t::destroy(m_index, &m_data);
          m_index = detail::invalidIndex_v;
-         helper_t::move(rhs.m_index, rhs.m_data.data(), m_data.data());
+         helper_t::move(rhs.m_index, &rhs.m_data, &m_data);
          m_index = rhs.m_index;
       }
 
       index_t m_index{ detail::invalidIndex_v };
 
-      alignas(Types...) std::array<unsigned char, size::k_size> m_data;
+      alignas(Types...) unsigned char m_data[size::k_size];
 
    }; // class BasicVariant
 
    template<typename T, typename ...Types>
-   constexpr bool holds_alternative(const basic_variant::BasicVariant<Types...>& v) noexcept
+   constexpr bool holds_alternative(const BasicVariant<Types...>& v) noexcept
    {
       return v.index() == detail::ValueTraits<T, Types...>::forwardIndex;
    }
