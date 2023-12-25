@@ -1,5 +1,5 @@
 project(variant_tests)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 
 add_subdirectory(lib)
 

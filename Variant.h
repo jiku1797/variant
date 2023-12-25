@@ -35,10 +35,13 @@ struct conjunction<B1, Bs...> : std::conditional<B1::value, conjunction<Bs...>, 
 {
 };
 
-template<typename...> struct disjunction : std::false_type
+template<typename...>
+struct disjunction : std::false_type
 {
 };
-template<typename B1> struct disjunction<B1> : B1
+
+template<typename B1>
+struct disjunction<B1> : B1
 {
 };
 
